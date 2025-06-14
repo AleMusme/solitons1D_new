@@ -1,40 +1,6 @@
 import numpy as np 
 from typing import Callable
 
-def create_profile(num_grid_points : int) -> np.array:
-    """
-    Creates a profile function for a grid with 
-    `num_grid_points` points.
-
-    Parameters
-    ----------
-    num_grid_points: int
-        Number of grid points
-
-    Returns
-    -------
-    profile: np.array
-        Generated profile function 
-    """
-    profile = np.zeros(num_grid_points)
-    return profile
-
-class Soliton():
-
-    def __init__(self, grid_spacing:float, num_grid_points:int):
-        self.ls = grid_spacing
-        self.lp = num_grid_points
-        self.profile = create_profile(num_grid_points)
-
-    def compute_energy(self):
-        """
-        Computes the total energy of the profile of the soliton.
-        For now, takes the profile, sums it up and multiplies it by the grid spacing.
-        """
-        total_energy = np.sum(self.profile)
-        total_energy *= self.ls
-        self.energy = total_energy
-
 class Grid:
     """
     A 1D grid.
@@ -115,3 +81,80 @@ class Lagrangian:
                 assert np.isclose(dV(vacuum), 0), (
                     f"The given vacua do not satisfy dV({vacuum}) = 0"
                 )
+
+class Soliton():
+
+    """
+    A class describing a Soliton.
+
+    Parameters
+    ----------
+    grid : Grid
+        The grid underpinning the soliton.
+    lagrangian : Lagrangian
+        The Lagrangian of the theory supporting the soliton.
+    initial_profile_function : None | function
+        The initial profile function, must be from R -> R. Optional.
+    initial_profile : None | array-like
+        The initial profile function as an array. Optional.
+    """
+
+    def __init__(self, 
+                 grid : Grid,
+                 lagrangian : Lagrangian,
+                 initial_profile_function: Callable[[float], float] | None = None,      #why this none=none?
+                 initial_profile: np.ndarray | None = None
+    ):
+        self.grid = grid 
+        self.lagrangian = lagrangian
+        self.profile = np.zeros(grid.num_grid_points)
+
+        assert (initial_profile_function is None) or (initial_profile is None), (
+            "Please only specify `initial_profile_function` or `profile_function`"
+        )
+
+        if initial_profile_function is not None:
+            self.profile = create_profile(self.grid.grid_points, initial_profile_function)
+        else:
+            self.profile = initial_profile
+        
+        self.compute_energy = self.compute_energy()
+
+    def compute_energy(self):
+        """
+        Computes the total energy of the profile of the soliton, and stores it in `Soliton.energy`
+        """
+        energy = compute_energy_fast(
+            self.lagrangian.V,
+            self.profile,
+            self.grid.num_grid_points,
+            self.grid.grid_spacing,
+        )
+        self.energy = energy
+
+def compute_energy_fast(V, profile, num_grid_points, grid_spacing):
+
+    total_energy = 0
+    return total_energy
+
+def create_profile(
+        grid_points : np.array,
+        initial_profile_function : Callable[[float], float] | None = None
+) -> np.array:
+    """
+    Creates a profile function on a grid, from profile function `initial_profile_function`.
+
+    Parameters
+    ----------
+    grid_points: Grid
+        The x-values of a grid.
+    initial_profile_function: function
+        A function which accepts and returns a 1D numpy array
+
+    Returns
+    -------
+    profile: np.array
+        Generated profile function
+    """
+    profile = initial_profile_function(grid_points)
+    return profile
