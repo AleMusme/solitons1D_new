@@ -84,3 +84,34 @@ class Grid:
             self.grid_points = np.arange(
                 -self.grid_length / 2, self.grid_length / 2, grid_spacing
             )
+
+class Lagrangian:
+    """
+    Used to represent Lagrangians of the form:
+        L = - 1/2(dx_phi)^2 - V(phi)
+
+    Parameters
+    ----------
+    V : function
+        The potential energy function, must be a map from R -> R
+    dV : function
+        The derivative of the potential energy function, must be a map from R -> R
+    vacua : list-like or None
+        List of vacua of the potential energy.
+    """ 
+
+    def __init__(
+        self,
+        V: Callable[[float], float], #this is how to pass functions as arguments in python
+        dV: Callable[[float], float],
+        vacua: list | np.ndarray | None = None,  # np.ndarray is the type of a numpy array
+    ):
+        self.V = V
+        self.dV = dV
+        self.vacua = vacua 
+
+        if vacua is not None:
+            for vacuum in vacua:
+                assert np.isclose(dV(vacuum), 0), (
+                    f"The given vacua do not satisfy dV({vacuum}) = 0"
+                )
