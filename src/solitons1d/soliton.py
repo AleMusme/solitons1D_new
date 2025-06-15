@@ -118,7 +118,7 @@ class Soliton():
         else:
             self.profile = initial_profile
         
-        self.compute_energy = self.compute_energy()
+        #self.compute_energy()
 
     def compute_energy(self):
         """
@@ -132,15 +132,104 @@ class Soliton():
         )
         self.energy = energy
 
-def compute_energy_fast(V, profile, num_grid_points, grid_spacing):
+def compute_energy_fast(
+    V: Callable[[float], float], 
+    profile: np.ndarray, 
+    num_grid_points: int, 
+    grid_spacing: float
+) -> float:
+    """
+    Computes the energy of a Lagrangian of the form
+        E = 1/2 (d_phi)^2 + V(phi)
 
-    total_energy = 0
-    return total_energy
+    Parameters
+    ----------
+    V: function
+        The potential energy function
+    profile: np.ndarray
+        The profile function of the soliton
+    num_grid_points: int
+        Length of `profile`
+    grid_spacing: float
+        Grid spacing of underlying grid
+    """
+    d_profile = get_first_derivative(profile, num_grid_points, grid_spacing)
+
+    kin_eng = - 0.5 * np.pow(d_profile, 2)
+    pot_eng = V(profile)
+
+    tot_eng = np.sum(kin_eng + pot_eng) * grid_spacing
+
+    return tot_eng
+
+def get_first_derivative(
+    phi: np.ndarray, 
+    num_grid_points: int, 
+    grid_spacing: float,
+) -> np.ndarray:
+    """
+    For a given array, computes the first derivative of that array.
+
+    Parameters
+    ----------
+    phi: np.ndarray
+        Array to get the first derivative of
+    num_grid_points: int
+        Length of the array
+    grid_spacing: float
+        Grid spacing of underlying grid
+
+    Returns
+    -------
+    d_phi: np.ndarray
+        The first derivative of `phi`.
+
+    """
+    d_phi = np.zeros(num_grid_points)
+    for i in np.arange(num_grid_points)[2:-2]:
+        d_phi[i] = (phi[i - 2] - 8 * phi[i - 1] + 8 * phi[i + 1] - phi[i + 2]) / (
+            12.0 * grid_spacing
+        )
+
+    return d_phi
+
+def get_second_derivative(
+    phi: np.ndarray,
+    num_grid_points: int,
+    grid_spacing: float
+) -> np.ndarray:
+    """
+    For a given array, computes the second derivative of that array.
+
+    Parameters
+    ----------
+    phi: np.ndarray
+        Array to get the first derivative of
+    num_grid_points: int
+        Length of the array
+    grid_spacing: float
+        Grid spacing of underlying grid
+
+    Returns
+    -------
+    dd_phi: np.ndarray
+        The second derivative of `phi`.
+
+    """
+    d_phi = get_first_derivative(phi, num_grid_points, grid_spacing)
+    dd_phi = np.zeros(num_grid_points)
+
+    for i in np.arange(num_grid_points)[2:-2]:
+        dd_phi[i] = (d_phi[i - 2] - 8 * d_phi[i - 1] + 8 * d_phi[i + 1] - d_phi[i + 2]) / (
+            12.0 * grid_spacing
+        )
+    
+    return dd_phi
 
 def create_profile(
         grid_points : np.array,
         initial_profile_function : Callable[[float], float] | None = None
-) -> np.array:
+    ) -> np.array:
     """
     Creates a profile function on a grid, from profile function `initial_profile_function`.
 
