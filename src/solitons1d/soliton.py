@@ -1,4 +1,5 @@
 import numpy as np 
+import matplotlib.pyplot as plt
 from typing import Callable
 
 class Grid:
@@ -131,6 +132,15 @@ class Soliton():
             self.grid.grid_spacing,
         )
         self.energy = energy
+    
+    def plot_soliton(self):
+        """Makes a plot of the profile function of your soliton"""
+
+        fig, ax = plt.subplots()
+        ax.plot(self.grid.grid_points, self.profile)
+        ax.set_title(f"Profile function. Energy = {self.energy:.4f}")
+
+        return fig
 
 def compute_energy_fast(
     V: Callable[[float], float], 
