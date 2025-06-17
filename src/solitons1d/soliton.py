@@ -2,6 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import Callable
 
+import json
+from pathlib import Path
+import pickle as pkl
+
 class Grid:
     """
     A 1D grid.
@@ -38,7 +42,7 @@ class Grid:
             assert (grid_start is not None and grid_end is not None), "You must provide either num_grid_points or both grid_start and grid_end"
             assert grid_start < grid_end, "grid_start should be less than grid_end"
 
-            self.grid_length = end - start 
+            self.grid_length = grid_end - grid_start 
             self.num_grid_points = int(np.floor(self.grid_length / grid_spacing))
             self.grid_points = np.arange(
                 grid_start, grid_end, grid_spacing  
@@ -51,6 +55,45 @@ class Grid:
             self.grid_points = np.arange(
                 -self.grid_length / 2, self.grid_length / 2, grid_spacing
             )
+
+    def save(
+        self,
+        folder_name: str | Path
+    ):
+        """
+        Saves a `Grid` object at `folder_name`.
+        """
+        metadata = {
+            "num_grid_points": self.num_grid_points,
+            "grid_spacing": self.grid_spacing
+        }     #this is a dictionary object. needed to add to json
+
+        # make the folder a Path if it is a string
+        folder = Path(folder_name)
+        folder.mkdir(exist_ok = True)
+
+        # this overwrites any existing metadata.json file
+        with open(folder / "metadata.json", "w") as f:
+            json.dump(metadata, f)
+        #here "w" means write mode, with automatically closes the file when it's done
+
+def load_grid(folder_name: str | Path):
+    """
+    Loads the `Grid` object at `folder_name`.
+    """       
+    folder = Path(folder_name)
+    metadata_path = folder / "metadata.json"
+
+    #control file is there
+    assert metadata_path.is_file(), f"Could not find Grid `metadata.json` file in {folder}."
+
+    with open(metadata_path , "r") as f:
+        grid_metadata = json.load(f)
+
+    # the ** "unpacks" the dictionary into a series of arguments
+    grid = Grid(**grid_metadata)
+    return grid
+
 
 class Lagrangian:
     """
@@ -82,6 +125,42 @@ class Lagrangian:
                 assert np.isclose(dV(vacuum), 0), (
                     f"The given vacua do not satisfy dV({vacuum}) = 0"
                 )
+
+    def save(
+        self,
+        folder_name: str | Path,
+    ):
+        """
+        Saves a `Lagrangian` object at `folder_name`.
+        """
+        metadata = {
+            "V": self.V,
+            "dV": self.dV,
+            "vacua": self.vacua,
+        }
+
+        # make the folder a Path if it is a string
+        folder = Path(folder_name)
+        folder.mkdir(exist_ok = True)
+
+        with open(folder / "metadata.pkl", "wb") as f:
+            pkl.dump(metadata, f)
+
+def load_lagrangian(folder_name: str | Path):
+    """
+    Loads the `Lagrangian` object at `folder_name`.
+    """
+    folder = Path(folder_name)
+    metadata_path = folder / "metadata.pkl"
+
+    assert metadata_path.is_file(), f"Could not find Lagrangian `metadata.pkl` file in {folder}."
+    
+    with open(metadata_path, "rb") as f:
+        lagrangian_metadata = pkl.load(f)
+    
+    # the ** "unpacks" the dictionary into a series of arguments
+    lagrangian = Lagrangian(**lagrangian_metadata)
+    return lagrangian
 
 class Soliton():
 
@@ -139,8 +218,68 @@ class Soliton():
         fig, ax = plt.subplots()
         ax.plot(self.grid.grid_points, self.profile)
         ax.set_title(f"Profile function. Energy = {self.energy:.4f}")
+        ax.grid()
 
         return fig
+    
+    def save(
+        self,
+        folder_name: str | Path,
+    ):
+        """
+        Saves a `Soliton` object at `folder_name`.
+        """
+
+        folder = Path(folder_name)
+        folder.mkdir(exist_ok = True)
+
+        grid_folder =  "./grid"
+        lagrangian_folder = "./lagrangian"
+
+        metadata = {
+            'grid_folder': str(grid_folder),
+            'lagrangian_folder': str(lagrangian_folder),
+        }
+
+        properties = {
+            'energy': self.energy
+        }
+
+        self.grid.save(grid_folder)
+        self.lagrangian.save(lagrangian_folder)
+
+        with open(folder / "metadata.json", "w") as f:
+            json.dump(metadata, f)
+
+        with open(folder / "properties.json", "w") as f:
+            json.dump(properties, f)
+        
+        # use `numpy`s save function to save the profile array
+        np.save("profile", self.profile)
+
+def load_soliton(folder_name):
+    """
+    Loads the `Lagrangian` object at `folder_name`.
+    """
+    folder = Path(folder_name)
+    metadata_path = folder / "metadata.json"
+
+    assert metadata_path.is_file(), f"Could not find Grid `metadata.json` file in {folder}."
+    
+    with open(metadata_path, "r") as f:
+        soliton_metadata = json.load(f)
+
+    grid_folder = soliton_metadata.get("grid_folder")
+    grid = load_grid(grid_folder)
+
+    lagrangian_folder = soliton_metadata.get("lagrangian_folder")
+    lagrangian = load_lagrangian(lagrangian_folder)
+
+    profile = np.load("profile.npy")
+    
+    soliton = Soliton(grid = grid, lagrangian=lagrangian, initial_profile=profile)
+
+    return soliton
 
 def compute_energy_fast(
     V: Callable[[float], float], 
@@ -165,7 +304,7 @@ def compute_energy_fast(
     """
     d_profile = get_first_derivative(profile, num_grid_points, grid_spacing)
 
-    kin_eng = - 0.5 * np.pow(d_profile, 2)
+    kin_eng = 0.5 * np.pow(d_profile, 2)
     pot_eng = V(profile)
 
     tot_eng = np.sum(kin_eng + pot_eng) * grid_spacing
